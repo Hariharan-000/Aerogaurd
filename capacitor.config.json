@@ -1,0 +1,9 @@
+{
+  "appId": "com.aerosense.app",
+  "appName": "AeroSense",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

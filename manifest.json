@@ -1,0 +1,24 @@
+{
+  "name": "AeroSense Mobile - Drone Air Quality Monitor",
+  "short_name": "AeroSense",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0F19",
+  "theme_color": "#0284C7",
+  "description": "Real-time drone-mounted air quality telemetry and multi-gas sensor monitoring system.",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
