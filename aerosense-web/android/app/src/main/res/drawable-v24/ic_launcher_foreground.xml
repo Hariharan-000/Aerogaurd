@@ -1,0 +1,36 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportHeight="108"
+    android:viewportWidth="108">
+    <!-- Outer Background Circle -->
+    <path
+        android:fillColor="#070A12"
+        android:pathData="M54,2 A52,52 0 1,1 54,106 A52,52 0 1,1 54,2 Z" />
+
+    <!-- Propellers (Orange) -->
+    <path
+        android:fillColor="#F97316"
+        android:pathData="M22,20 C18,24 16,30 18,36 C20,32 24,24 30,20 Z M86,20 C90,24 92,30 90,36 C88,32 84,24 78,20 Z M22,88 C18,84 16,78 18,72 C20,76 24,84 30,88 Z M86,88 C90,84 92,78 90,72 C88,76 84,84 78,88 Z" />
+
+    <!-- Drone Arms (Blue) -->
+    <path
+        android:fillColor="#2563EB"
+        android:pathData="M28,28 L80,80 L76,84 L24,32 Z M80,28 L28,80 L24,76 L76,24 Z" />
+
+    <!-- Central Chassis (Dark Blue / Cyan) -->
+    <path
+        android:fillColor="#1E3A8A"
+        android:pathData="M42,38 H66 V70 H42 Z" />
+    <path
+        android:fillColor="#06B6D4"
+        android:pathData="M44,40 H64 V68 H44 Z" />
+
+    <!-- Central WiFi / Beacon & Circuit (Green) -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M54,46 A8,8 0 0,1 62,54 H58 A4,4 0 0,0 54,50 Z" />
+    <path
+        android:fillColor="#34D399"
+        android:pathData="M52,56 H56 V62 H52 Z" />
+</vector>

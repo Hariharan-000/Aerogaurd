@@ -1,0 +1,579 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Gas Collector Drone</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: full-bleed WebGL stage, title chip top-left, control console docked bottom-left, labels anchored to 3D points. Committed dark look (night-ops cyan on navy), single theme by choice. */
+:root {
+  --bg: #070d18;
+  --panel: rgba(9, 19, 34, 0.84);
+  --line: #173d57;
+  --fg: #d7ecf8;
+  --muted: #7c9bb2;
+  --accent: #22d3ee;
+  --accent-ink: #03131c;
+  --gas: #62ffb5;
+  --font-display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --font-data: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-display);
+  padding-block: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: hidden;
+}
+#stage { position: fixed; inset: 0; z-index: 0; touch-action: none; }
+#stage canvas { display: block; width: 100%; height: 100%; }
+
+.top { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; pointer-events: none; }
+.brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.brand-name { font-size: 20px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.brand-sub { font-family: var(--font-data); font-size: 11px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+.hint { margin: 0; font-family: var(--font-data); font-size: 11px; letter-spacing: 0.06em; color: var(--muted); text-align: right; text-transform: uppercase; }
+
+.console {
+  position: relative; z-index: 2;
+  width: min(100%, 720px);
+  box-sizing: border-box;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 20px;
+  backdrop-filter: blur(8px);
+}
+.readouts { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; min-width: 0; }
+.ro { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.k { font-family: var(--font-data); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.v { font-family: var(--font-data); font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.v small { font-size: 12px; margin-left: 4px; color: var(--muted); }
+.track { height: 4px; background: #0f2438; border-radius: 2px; overflow: hidden; margin-top: 4px; }
+.track i { display: block; height: 100%; width: 0; background: var(--gas); box-shadow: 0 0 10px var(--gas); }
+.actions { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.btn {
+  appearance: none; cursor: pointer;
+  min-height: 44px; padding: 0 18px;
+  font-family: var(--font-display); font-size: 15px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--accent); background: transparent;
+  border: 1px solid var(--accent); border-radius: 4px;
+}
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn:hover:not(:disabled) { filter: brightness(1.15); }
+.btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.status { grid-column: 1 / -1; margin: 0; font-family: var(--font-data); font-size: 12px; letter-spacing: 0.02em; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+
+.tag {
+  position: fixed; left: 0; top: 0; z-index: 1; pointer-events: none;
+  padding-left: 32px; white-space: nowrap; will-change: transform;
+  font-family: var(--font-data); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.tag b { display: block; font-weight: 500; color: var(--accent); }
+.tag span { color: var(--muted); }
+.tag::before { content: ""; position: absolute; left: -4px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.22); }
+.tag::after { content: ""; position: absolute; left: 4px; top: 50%; width: 24px; height: 1px; background: var(--accent); }
+.tag.flip { padding-left: 0; padding-right: 32px; text-align: right; }
+.tag.flip::before { left: auto; right: -4px; }
+.tag.flip::after { left: auto; right: 4px; }
+.tag.gas b { color: var(--gas); }
+.tag.gas::before { background: var(--gas); box-shadow: 0 0 0 4px rgba(98, 255, 181, 0.2); }
+.tag.gas::after { background: var(--gas); }
+
+#fallback { position: fixed; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; background: var(--bg); color: var(--muted); font-family: var(--font-data); }
+
+@media (max-width: 600px) {
+  .console { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .readouts { gap: 10px; }
+  .v { font-size: 20px; }
+  .btn { flex: 1 1 0; padding: 0 10px; }
+  .hint { display: none; }
+  .brand-name { font-size: 17px; }
+}
+</style>
+
+<div id="stage" aria-label="3D drone with a gas container underneath"></div>
+<div id="fallback" hidden>3D view could not start in this browser. Try a browser with WebGL enabled.</div>
+
+<header class="top">
+  <div class="brand">
+    <span class="brand-name">Gas Collector Drone</span>
+    <span class="brand-sub">UAV-04 · 12 L sampling tank</span>
+  </div>
+  <p class="hint">Drag to orbit · scroll to zoom</p>
+</header>
+
+<div class="tag" id="tagTank"><b>Gas container</b><span>12 L · 8 bar rated</span></div>
+<div class="tag gas" id="tagPlume"><b>Gas plume</b><span id="tagPlumeSub">100% remaining</span></div>
+
+<section class="console" aria-label="Gas collection controls">
+  <div class="readouts">
+    <div class="ro">
+      <span class="k">Tank fill</span>
+      <span class="v" id="vFill">0<small>%</small></span>
+      <div class="track"><i id="barFill"></i></div>
+    </div>
+    <div class="ro"><span class="k">Pressure</span><span class="v" id="vPress">0.0<small>bar</small></span></div>
+    <div class="ro"><span class="k">Volume</span><span class="v" id="vVol">0.0<small>L</small></span></div>
+  </div>
+  <div class="actions">
+    <button id="btnCollect" class="btn primary" type="button">Collect gas</button>
+    <button id="btnRelease" class="btn" type="button" disabled>Release gas</button>
+  </div>
+  <p id="status" class="status" role="status" aria-live="polite">Intake closed. Press Collect gas to draw the plume into the tank.</p>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  'use strict';
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var amb = reduce ? 0.25 : 1;
+
+  function fail() { document.getElementById('fallback').hidden = false; }
+  if (!window.THREE || !THREE.OrbitControls) { fail(); return; }
+
+  var stage = document.getElementById('stage');
+  var renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+  } catch (e) { fail(); return; }
+  var PR = Math.min(window.devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(PR);
+  renderer.setClearColor(0x070d18);
+  stage.appendChild(renderer.domElement);
+
+  var scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x070d18, 0.026);
+  var camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+  var portrait = window.innerWidth / window.innerHeight < 0.9;
+  camera.position.set(8.2, 4.6, 9.4);
+  if (portrait) camera.position.multiplyScalar(1.5);
+  var controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1.3, 2.4);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.minDistance = 4;
+  controls.maxDistance = 28;
+  controls.maxPolarAngle = Math.PI * 0.495;
+  controls.update();
+
+  /* lights */
+  scene.add(new THREE.HemisphereLight(0x5aa8ff, 0x050a14, 0.95));
+  var key = new THREE.DirectionalLight(0xbfe6ff, 0.9); key.position.set(5, 9, 6); scene.add(key);
+  var rim = new THREE.DirectionalLight(0x1fb8d8, 0.85); rim.position.set(-6, 3, -6); scene.add(rim);
+  var under = new THREE.PointLight(0x22d3ee, 1.2, 9); under.position.set(0, 0.5, 0.6); scene.add(under);
+
+  /* helpers */
+  function mesh(geo, mat, parent, x, y, z) {
+    var m = new THREE.Mesh(geo, mat);
+    m.position.set(x || 0, y || 0, z || 0);
+    (parent || scene).add(m);
+    return m;
+  }
+  function spriteTexture() {
+    var c = document.createElement('canvas'); c.width = c.height = 64;
+    var g = c.getContext('2d');
+    var gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)');
+    gr.addColorStop(0.4, 'rgba(255,255,255,0.45)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(c);
+  }
+  var sprite = spriteTexture();
+
+  var steel = new THREE.MeshStandardMaterial({ color: 0x1d3250, roughness: 0.4, metalness: 0.75 });
+  var steelDark = new THREE.MeshStandardMaterial({ color: 0x0f1c30, roughness: 0.5, metalness: 0.7 });
+  var glowCyan = new THREE.MeshStandardMaterial({ color: 0x0a3a4a, emissive: 0x22d3ee, emissiveIntensity: 1 });
+  var glowBlue = new THREE.MeshStandardMaterial({ color: 0x0a1e4a, emissive: 0x3b82f6, emissiveIntensity: 1.2 });
+
+  /* floor */
+  var grid = new THREE.GridHelper(80, 80, 0x12718a, 0x0f2a45);
+  grid.material.transparent = true; grid.material.opacity = 0.55;
+  scene.add(grid);
+  var pad = mesh(new THREE.CircleGeometry(3.4, 48),
+    new THREE.MeshBasicMaterial({ map: sprite, color: 0x22d3ee, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }),
+    scene, 0, 0.01, 0.4);
+  pad.rotation.x = -Math.PI / 2;
+
+  /* ambient square dots, like the original scene */
+  var DOTS = 190, dp = new Float32Array(DOTS * 3);
+  for (var d = 0; d < DOTS; d++) {
+    dp[d * 3] = (Math.random() - 0.5) * 30;
+    dp[d * 3 + 1] = 0.3 + Math.random() * 8;
+    dp[d * 3 + 2] = (Math.random() - 0.5) * 30;
+  }
+  var dg = new THREE.BufferGeometry();
+  dg.setAttribute('position', new THREE.BufferAttribute(dp, 3));
+  var dots = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0x2bb6e6, size: 3, sizeAttenuation: false, transparent: true, opacity: 0.75, fog: false }));
+  scene.add(dots);
+
+  /* ---------- drone ---------- */
+  var drone = new THREE.Group(); scene.add(drone);
+  mesh(new THREE.BoxGeometry(2.6, 0.9, 1.9), steel, drone, 0, 0, 0);
+  mesh(new THREE.BoxGeometry(1.9, 0.3, 1.4), steelDark, drone, 0, 0.55, 0);
+  mesh(new THREE.BoxGeometry(1.6, 0.55, 0.5), steelDark, drone, 0, -0.05, 1.1);
+  mesh(new THREE.SphereGeometry(0.24, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), glowCyan, drone, 0, 0.7, 0.35);
+  mesh(new THREE.BoxGeometry(1.1, 0.06, 0.03), glowCyan, drone, 0, 0.12, 1.36);
+  mesh(new THREE.BoxGeometry(0.03, 0.05, 1.0), glowBlue, drone, 1.31, 0.1, 0);
+  mesh(new THREE.BoxGeometry(0.03, 0.05, 1.0), glowBlue, drone, -1.31, 0.1, 0);
+
+  var rotors = [];
+  [[1, 1], [-1, 1], [1, -1], [-1, -1]].forEach(function (s, i) {
+    var sx = s[0], sz = s[1];
+    var x0 = sx * 1.0, z0 = sz * 0.7, rx = sx * 2.75, rz = sz * 2.0;
+    var dx = rx - x0, dz = rz - z0, L = Math.sqrt(dx * dx + dz * dz);
+    var arm = mesh(new THREE.BoxGeometry(0.17, 0.13, L), steelDark, drone, (x0 + rx) / 2, 0.15, (z0 + rz) / 2);
+    arm.rotation.y = Math.atan2(dx, dz);
+    var g = new THREE.Group(); g.position.set(rx, 0.15, rz); drone.add(g);
+    var hm = steelDark.clone(); hm.side = THREE.DoubleSide;
+    mesh(new THREE.CylinderGeometry(0.56, 0.5, 0.5, 36, 1, true), hm, g);
+    var ring = mesh(new THREE.TorusGeometry(0.56, 0.05, 12, 48), glowCyan, g, 0, 0.25, 0);
+    ring.rotation.x = Math.PI / 2;
+    mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.18, 16), steel, g, 0, 0.05, 0);
+    var blades = new THREE.Group(); blades.position.y = 0.22; g.add(blades);
+    mesh(new THREE.BoxGeometry(1.7, 0.03, 0.14), steelDark, blades);
+    rotors.push({ blades: blades, dir: i % 2 ? 1 : -1 });
+  });
+
+  [-1, 1].forEach(function (sx) {
+    mesh(new THREE.BoxGeometry(0.09, 0.09, 2.9), steelDark, drone, sx * 1.0, -1.45, 0.1);
+    [-1, 1].forEach(function (sz) {
+      mesh(new THREE.BoxGeometry(0.08, 1.0, 0.08), steelDark, drone, sx * 1.0, -0.95, sz * 0.8);
+    });
+  });
+
+  /* ---------- gas container (tank) ---------- */
+  var R = 0.38, LC = 1.5;
+  var tank = new THREE.Group(); tank.position.set(0, -0.9, 0.1); drone.add(tank);
+
+  var shellMat = new THREE.MeshPhysicalMaterial({ color: 0x8fe9ff, transparent: true, opacity: 0.2, roughness: 0.08, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false });
+  mesh(new THREE.CylinderGeometry(R, R, LC, 40, 1, true), shellMat, tank).rotation.x = Math.PI / 2;
+  var capGeo = new THREE.SphereGeometry(R, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+  mesh(capGeo, shellMat, tank, 0, 0, LC / 2).rotation.x = Math.PI / 2;
+  mesh(capGeo, shellMat, tank, 0, 0, -LC / 2).rotation.x = -Math.PI / 2;
+
+  var coreMat = new THREE.MeshBasicMaterial({ color: 0x62ffb5, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  var coreCap = new THREE.SphereGeometry(R - 0.04, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2);
+  mesh(new THREE.CylinderGeometry(R - 0.04, R - 0.04, LC, 32, 1, true), coreMat, tank).rotation.x = Math.PI / 2;
+  mesh(coreCap, coreMat, tank, 0, 0, LC / 2).rotation.x = Math.PI / 2;
+  mesh(coreCap, coreMat, tank, 0, 0, -LC / 2).rotation.x = -Math.PI / 2;
+
+  [-1, 1].forEach(function (s) {
+    mesh(new THREE.TorusGeometry(R + 0.01, 0.05, 12, 40), steel, tank, 0, 0, s * LC / 2);
+    mesh(new THREE.TorusGeometry(R + 0.012, 0.022, 10, 40), glowCyan, tank, 0, 0, s * (LC / 2 - 0.18));
+  });
+  [-0.35, 0.35].forEach(function (z) {
+    mesh(new THREE.TorusGeometry(R + 0.03, 0.03, 10, 40), steelDark, tank, 0, 0, z);
+    mesh(new THREE.BoxGeometry(0.5, 0.12, 0.07), steelDark, tank, 0, R + 0.05, z);
+  });
+
+  /* intake nozzle (front) */
+  mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.28, 20), steel, tank, 0, 0, LC / 2 + R + 0.08).rotation.x = Math.PI / 2;
+  var flareMat = steelDark.clone(); flareMat.side = THREE.DoubleSide;
+  mesh(new THREE.CylinderGeometry(0.22, 0.1, 0.2, 28, 1, true), flareMat, tank, 0, 0, 1.45).rotation.x = Math.PI / 2;
+  var intakeMat = glowCyan.clone();
+  mesh(new THREE.TorusGeometry(0.22, 0.025, 10, 32), intakeMat, tank, 0, 0, 1.55);
+
+  /* valve wheel (rear) */
+  mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.2, 14), steel, tank, 0, 0, -(LC / 2 + R + 0.1)).rotation.x = Math.PI / 2;
+  var wheel = new THREE.Group(); wheel.position.set(0, 0, -(LC / 2 + R + 0.24)); tank.add(wheel);
+  mesh(new THREE.TorusGeometry(0.13, 0.02, 8, 24), glowCyan, wheel);
+  mesh(new THREE.BoxGeometry(0.26, 0.02, 0.02), steel, wheel);
+  mesh(new THREE.BoxGeometry(0.02, 0.26, 0.02), steel, wheel);
+
+  /* pressure gauge (+x side) */
+  var gx = R + 0.1, gy = 0.05, gz = -0.3;
+  mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), steelDark, tank, R + 0.02, gy, gz);
+  mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.04, 32), steel, tank, gx, gy, gz).rotation.z = Math.PI / 2;
+  var face = mesh(new THREE.CircleGeometry(0.12, 32), new THREE.MeshBasicMaterial({ color: 0x06121f }), tank, gx + 0.025, gy, gz);
+  face.rotation.y = Math.PI / 2;
+  var gring = mesh(new THREE.TorusGeometry(0.13, 0.012, 8, 32), glowCyan, tank, gx + 0.03, gy, gz);
+  gring.rotation.y = Math.PI / 2;
+  var needle = new THREE.Group(); needle.position.set(gx + 0.035, gy, gz); tank.add(needle);
+  mesh(new THREE.BoxGeometry(0.006, 0.1, 0.012), new THREE.MeshBasicMaterial({ color: 0x62ffb5 }), needle, 0, 0.045, 0);
+
+  /* fill LEDs */
+  var offCol = new THREE.Color(0x10303f), onCol = new THREE.Color(0x62ffb5);
+  var leds = [];
+  for (var k = 0; k < 10; k++) {
+    var lm = new THREE.MeshBasicMaterial({ color: 0x10303f });
+    var lb = mesh(new THREE.BoxGeometry(0.04, 0.04, 0.1), lm, tank, 0.291, 0.244, -0.62 + k * 0.1378);
+    lb.rotation.z = 0.7;
+    leds.push(lm);
+  }
+
+  /* ---------- gas particles ---------- */
+  var N = 420, INNER = 360;
+  function gasMaterial(color) {
+    return new THREE.ShaderMaterial({
+      uniforms: { uScale: { value: 600 }, uColor: { value: new THREE.Color(color) }, uMap: { value: sprite } },
+      vertexShader: 'attribute float aSize; attribute float aAlpha; uniform float uScale; varying float vA;' +
+        'void main(){ vA = aAlpha; vec4 mv = modelViewMatrix * vec4(position,1.0);' +
+        'gl_PointSize = aSize * uScale / max(0.1, -mv.z); gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform vec3 uColor; uniform sampler2D uMap; varying float vA;' +
+        'void main(){ float a = texture2D(uMap, gl_PointCoord).a * vA; gl_FragColor = vec4(uColor, a); }',
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+  }
+  var cloudMat = gasMaterial(0x62ffb5), innerMat = gasMaterial(0x7dffc4);
+
+  var cloudCenter = new THREE.Vector3(0.3, 1.35, 5.5);
+  var home = new Float32Array(N * 3), phase = new Float32Array(N * 3);
+  var cPos = new Float32Array(N * 3), cSize = new Float32Array(N), cAlpha = new Float32Array(N), baseA = new Float32Array(N);
+  for (var i = 0; i < N; i++) {
+    var th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1), rr = Math.cbrt(Math.random());
+    home[i * 3] = cloudCenter.x + Math.sin(ph) * Math.cos(th) * rr * 1.7;
+    home[i * 3 + 1] = cloudCenter.y + Math.cos(ph) * rr * 0.9;
+    home[i * 3 + 2] = cloudCenter.z + Math.sin(ph) * Math.sin(th) * rr * 1.5;
+    phase[i * 3] = Math.random() * 6.28; phase[i * 3 + 1] = Math.random() * 6.28; phase[i * 3 + 2] = Math.random() * 6.28;
+    cSize[i] = 0.35 + Math.random() * 0.55;
+    baseA[i] = 0.12 + Math.random() * 0.2;
+    cAlpha[i] = baseA[i];
+  }
+  var cloudGeo = new THREE.BufferGeometry();
+  cloudGeo.setAttribute('position', new THREE.BufferAttribute(cPos, 3));
+  cloudGeo.setAttribute('aSize', new THREE.BufferAttribute(cSize, 1));
+  cloudGeo.setAttribute('aAlpha', new THREE.BufferAttribute(cAlpha, 1));
+  var cloud = new THREE.Points(cloudGeo, cloudMat); cloud.frustumCulled = false; scene.add(cloud);
+
+  var iPos = new Float32Array(INNER * 3), iSize = new Float32Array(INNER), iAlpha = new Float32Array(INNER);
+  for (var j = 0; j < INNER; j++) {
+    var a = Math.random() * Math.PI * 2, rad = Math.sqrt(Math.random()) * (R - 0.07);
+    iPos[j * 3] = Math.cos(a) * rad; iPos[j * 3 + 1] = Math.sin(a) * rad; iPos[j * 3 + 2] = (Math.random() - 0.5) * (LC + 0.4);
+    iSize[j] = 0.1 + Math.random() * 0.1; iAlpha[j] = 0.35 + Math.random() * 0.45;
+  }
+  var innerGeo = new THREE.BufferGeometry();
+  innerGeo.setAttribute('position', new THREE.BufferAttribute(iPos, 3));
+  innerGeo.setAttribute('aSize', new THREE.BufferAttribute(iSize, 1));
+  innerGeo.setAttribute('aAlpha', new THREE.BufferAttribute(iAlpha, 1));
+  innerGeo.setDrawRange(0, 0);
+  var innerPts = new THREE.Points(innerGeo, innerMat); innerPts.frustumCulled = false; tank.add(innerPts);
+
+  /* intake field cone */
+  var coneMat = new THREE.MeshBasicMaterial({ color: 0x62ffb5, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  var cone = mesh(new THREE.ConeGeometry(1.4, 3.2, 40, 1, true), coneMat, scene, 0, 1.25, 1.75 + 1.6);
+  cone.rotation.x = -Math.PI / 2;
+
+  /* ---------- simulation state ---------- */
+  var state = new Uint8Array(N);              // 0 in plume, 1 flying, 2 inside tank
+  var dir = new Uint8Array(N);                // 1 absorb, 2 release
+  var uProg = new Float32Array(N), dur = new Float32Array(N);
+  var Ax = new Float32Array(N * 3), Cx = new Float32Array(N * 3);
+  var cloudList = [], absorbed = [];
+  for (var q = 0; q < N; q++) cloudList.push(q);
+  var mode = 'idle', spawnAcc = 0, fillShown = 0, t = 0;
+  var RATE = 85, VENT_RATE = 190;
+  var nozzle = new THREE.Vector3(), tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
+
+  function pickRandom(list) {
+    var idx = Math.floor(Math.random() * list.length), v = list[idx];
+    list[idx] = list[list.length - 1]; list.pop(); return v;
+  }
+  function driftPos(i, time, out) {
+    var i3 = i * 3, s = 0.16 * amb;
+    out.set(
+      home[i3] + Math.sin(time * 0.6 + phase[i3]) * s,
+      home[i3 + 1] + Math.sin(time * 0.5 + phase[i3 + 1]) * s * 0.7,
+      home[i3 + 2] + Math.sin(time * 0.7 + phase[i3 + 2]) * s
+    );
+    return out;
+  }
+  function setControl(i, a, b) {
+    var i3 = i * 3;
+    Ax[i3] = a.x; Ax[i3 + 1] = a.y; Ax[i3 + 2] = a.z;
+    Cx[i3] = (a.x + b.x) / 2 + (Math.random() - 0.5) * 1.6;
+    Cx[i3 + 1] = (a.y + b.y) / 2 + 0.2 + Math.random() * 0.9;
+    Cx[i3 + 2] = (a.z + b.z) / 2 + (Math.random() - 0.5) * 1.2;
+  }
+  function launchAbsorb(i) {
+    state[i] = 1; dir[i] = 1; uProg[i] = 0; dur[i] = 1.1 + Math.random() * 0.9;
+    tmp.set(cPos[i * 3], cPos[i * 3 + 1], cPos[i * 3 + 2]);
+    setControl(i, tmp, nozzle);
+  }
+  function launchRelease(i) {
+    state[i] = 1; dir[i] = 2; uProg[i] = 0; dur[i] = 1.0 + Math.random() * 0.8;
+    driftPos(i, t + 1.2, tmp2);
+    setControl(i, nozzle, tmp2);
+  }
+
+  function updateParticles(dt) {
+    for (var i = 0; i < N; i++) {
+      var i3 = i * 3, s = state[i];
+      if (s === 0) {
+        driftPos(i, t, tmp);
+        cPos[i3] = tmp.x; cPos[i3 + 1] = tmp.y; cPos[i3 + 2] = tmp.z;
+        cAlpha[i] = baseA[i];
+      } else if (s === 1) {
+        uProg[i] += dt / dur[i];
+        var kk = Math.min(uProg[i], 1), e, bx, by, bz;
+        if (dir[i] === 1) { e = Math.pow(kk, 1.7); bx = nozzle.x; by = nozzle.y; bz = nozzle.z; }
+        else { e = 1 - Math.pow(1 - kk, 2); driftPos(i, t + 1.2, tmp2); bx = tmp2.x; by = tmp2.y; bz = tmp2.z; }
+        var m = 1 - e, w0 = m * m, w1 = 2 * m * e, w2 = e * e;
+        cPos[i3] = Ax[i3] * w0 + Cx[i3] * w1 + bx * w2;
+        cPos[i3 + 1] = Ax[i3 + 1] * w0 + Cx[i3 + 1] * w1 + by * w2;
+        cPos[i3 + 2] = Ax[i3 + 2] * w0 + Cx[i3 + 2] * w1 + bz * w2;
+        cAlpha[i] = Math.min(1, baseA[i] + (dir[i] === 1 ? 0.5 * kk : 0.5 * (1 - kk)));
+        if (kk >= 1) {
+          if (dir[i] === 1) { state[i] = 2; cAlpha[i] = 0; absorbed.push(i); }
+          else { state[i] = 0; cloudList.push(i); }
+        }
+      } else {
+        cAlpha[i] = 0;
+      }
+    }
+    cloudGeo.attributes.position.needsUpdate = true;
+    cloudGeo.attributes.aAlpha.needsUpdate = true;
+  }
+
+  /* ---------- UI ---------- */
+  var elFill = document.getElementById('vFill'), elBar = document.getElementById('barFill');
+  var elPress = document.getElementById('vPress'), elVol = document.getElementById('vVol');
+  var btnC = document.getElementById('btnCollect'), btnR = document.getElementById('btnRelease');
+  var elStatus = document.getElementById('status'), elPlume = document.getElementById('tagPlumeSub');
+  var lastHasGas = false, lastTxt = '';
+
+  function updateUI() {
+    var has = absorbed.length > 0;
+    btnC.textContent = mode === 'collecting' ? 'Stop intake' : (mode === 'full' ? 'Tank full' : 'Collect gas');
+    btnC.disabled = (mode === 'full' || mode === 'venting');
+    btnR.disabled = !has || mode === 'venting';
+    var msg = {
+      idle: has ? 'Intake paused. Collect more gas or release it back to the plume.' : 'Intake closed. Press Collect gas to draw the plume into the tank.',
+      collecting: 'Intake open. Gas is being drawn into the tank.',
+      full: 'Tank full. Intake valve sealed.',
+      venting: 'Releasing gas back to the plume.'
+    }[mode];
+    elStatus.textContent = msg;
+  }
+  btnC.addEventListener('click', function () {
+    if (mode === 'idle') mode = 'collecting';
+    else if (mode === 'collecting') mode = 'idle';
+    updateUI();
+  });
+  btnR.addEventListener('click', function () {
+    if (absorbed.length && mode !== 'venting') { mode = 'venting'; spawnAcc = 0; updateUI(); }
+  });
+  updateUI();
+
+  /* anchored labels */
+  var tagTank = document.getElementById('tagTank'), tagPlume = document.getElementById('tagPlume');
+  var proj = new THREE.Vector3();
+  function placeTag(el, world) {
+    proj.copy(world).project(camera);
+    if (proj.z > 1 || proj.z < -1) { el.style.visibility = 'hidden'; return; }
+    el.style.visibility = 'visible';
+    var w = stage.clientWidth, h = stage.clientHeight;
+    var x = (proj.x * 0.5 + 0.5) * w, y = (-proj.y * 0.5 + 0.5) * h;
+    var flip = x > w * 0.6;
+    el.classList.toggle('flip', flip);
+    el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) translate(' + (flip ? '-100%' : '0') + ',-50%)';
+  }
+
+  /* ---------- resize ---------- */
+  function resize() {
+    var w = stage.clientWidth || window.innerWidth, h = stage.clientHeight || window.innerHeight;
+    renderer.setSize(w, h);
+    var asp = w / h;
+    camera.aspect = asp;
+    camera.fov = asp < 0.9 ? 56 : 42;
+    camera.updateProjectionMatrix();
+    var sc = (h * PR) / (2 * Math.tan(camera.fov * Math.PI / 360));
+    cloudMat.uniforms.uScale.value = sc;
+    innerMat.uniforms.uScale.value = sc;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* ---------- animate ---------- */
+  var last = performance.now(), rotorSpeed = 18, coneOp = 0;
+  var anchorTank = new THREE.Vector3(), anchorPlume = new THREE.Vector3();
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
+
+    drone.position.y = 2.15 + Math.sin(t * 1.6) * 0.07 * amb;
+    drone.rotation.z = Math.sin(t * 1.1) * 0.012 * amb;
+    drone.rotation.x = (mode === 'collecting' ? 0.025 : 0) * amb;
+    drone.updateMatrixWorld(true);
+    tank.localToWorld(nozzle.set(0, 0, 1.62));
+
+    if (mode === 'collecting') {
+      spawnAcc += RATE * dt;
+      while (spawnAcc >= 1 && cloudList.length) { launchAbsorb(pickRandom(cloudList)); spawnAcc -= 1; }
+      if (!cloudList.length) spawnAcc = 0;
+    } else if (mode === 'venting') {
+      spawnAcc += VENT_RATE * dt;
+      while (spawnAcc >= 1 && absorbed.length) { launchRelease(pickRandom(absorbed)); spawnAcc -= 1; }
+      if (!absorbed.length) { mode = 'idle'; spawnAcc = 0; updateUI(); }
+    }
+    updateParticles(dt);
+    if (absorbed.length >= N && (mode === 'collecting' || mode === 'idle')) { mode = 'full'; updateUI(); }
+    var hasGas = absorbed.length > 0;
+    if (hasGas !== lastHasGas) { lastHasGas = hasGas; updateUI(); }
+
+    var target = absorbed.length / N;
+    fillShown += (target - fillShown) * Math.min(1, dt * 6);
+    if (Math.abs(target - fillShown) < 0.0005) fillShown = target;
+
+    coreMat.opacity = 0.5 * fillShown;
+    innerGeo.setDrawRange(0, Math.round(fillShown * INNER));
+    innerPts.rotation.z += dt * (0.5 + fillShown * 1.5);
+    for (var l = 0; l < leds.length; l++) {
+      leds[l].color.copy(offCol).lerp(onCol, Math.max(0, Math.min(1, fillShown * 10 - l)));
+    }
+    needle.rotation.x = -2.1 + 4.2 * fillShown;
+
+    var coll = mode === 'collecting';
+    intakeMat.emissiveIntensity = coll ? 1.6 + 0.8 * Math.sin(t * 10) : 0.5;
+    coneOp += ((coll ? 0.07 + 0.02 * Math.sin(t * 6) : 0) - coneOp) * Math.min(1, dt * 5);
+    coneMat.opacity = coneOp;
+    wheel.rotation.z += dt * (coll ? 4 : 0);
+    under.intensity = 1.0 + fillShown * 1.2;
+
+    rotorSpeed += ((coll ? 30 : 18) * (reduce ? 0.4 : 1) - rotorSpeed) * Math.min(1, dt * 3);
+    for (var r = 0; r < rotors.length; r++) rotors[r].blades.rotation.y += rotors[r].dir * rotorSpeed * dt;
+
+    dots.rotation.y += dt * 0.012 * amb;
+    dots.position.y = Math.sin(t * 0.3) * 0.15 * amb;
+
+    var pct = Math.round(fillShown * 100);
+    var txt = pct + '|' + (fillShown * 8).toFixed(1) + '|' + (fillShown * 12).toFixed(1);
+    if (txt !== lastTxt) {
+      lastTxt = txt;
+      elFill.innerHTML = pct + '<small>%</small>';
+      elBar.style.width = (fillShown * 100).toFixed(1) + '%';
+      elPress.innerHTML = (fillShown * 8).toFixed(1) + '<small>bar</small>';
+      elVol.innerHTML = (fillShown * 12).toFixed(1) + '<small>L</small>';
+      elPlume.textContent = (100 - pct) + '% remaining';
+    }
+
+    controls.update();
+    tank.localToWorld(anchorTank.set(0.3, 0.22, 0.55));
+    anchorPlume.copy(cloudCenter).add(tmp.set(0.9, 0.75, 0));
+    placeTag(tagTank, anchorTank);
+    placeTag(tagPlume, anchorPlume);
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
